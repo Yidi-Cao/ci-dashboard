@@ -22,7 +22,7 @@ def load_json(file_path):
 st.sidebar.subheader("Consumer Insights Analysis")
 # st.sidebar.subheader("选择产品: " + st.session_state.selected_product)
 if "file_path" not in st.session_state:
-    st.session_state.file_path = './data/frog_taco_1.1.xlsx'
+    st.session_state.file_path = './data/extracted_牛蛙塔可_v5.xlsx'
     st.session_state.selected_product = "牛蛙Taco"
     st.session_state.summary_file_path = './data/summarization_牛蛙塔可_v5.json'
 
@@ -48,10 +48,10 @@ def set_product_k_sa():
     st.session_state.summary_file_path = './data/summarization_大盘鸡K萨_v5.json'
 
 
-st.sidebar.button("**牛蛙taco**",
+st.sidebar.button("**牛蛙Taco**",
                   use_container_width=True,
                   on_click=set_product_frog)
-st.sidebar.button("**小龙虾taco** \n\n",
+st.sidebar.button("**小龙虾Taco** \n\n",
                   use_container_width=True,
                   on_click=set_product_crawfish)
 st.sidebar.button("**k萨** \n\n ",
@@ -62,16 +62,6 @@ st.sidebar.info(f'''Logged in: **Shaojie Li**''')
 st.text(" ")
 st.text(" ")
 st.text(" ")
-# st.sidebar.caption(f"Selected client: **{st.session_state.client_name}**")
-
-# selected_date = st.sidebar.date_input(
-#     "Selected date",
-#     # value=dt.today(),
-#     value=datetime.date(2023, 4, 4),
-#     label_visibility='visible')
-
-# 设置你的OpenAI的API密钥
-openai.api_key = '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'
 
 product_name = '大盘鸡K萨'
 
@@ -398,3 +388,11 @@ st.table(df_table)
 #         }
 #     )
 #     st.bar_chart(chart_data, x="标签", y="提及次数")
+
+# st.sidebar.caption(f"Selected client: **{st.session_state.client_name}**")
+
+# selected_date = st.sidebar.date_input(
+#     "Selected date",
+#     # value=dt.today(),
+#     value=datetime.date(2023, 4, 4),
+#     label_visibility='visible')
