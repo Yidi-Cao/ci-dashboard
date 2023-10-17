@@ -43,7 +43,7 @@ def set_product_crawfish():
 
 
 def set_product_k_sa():
-    st.session_state.selected_product = "K萨"
+    st.session_state.selected_product = "大盘鸡K萨"
     st.session_state.file_path = './data/extracted_大盘鸡K萨_v5.xlsx'
     st.session_state.summary_file_path = './data/summarization_大盘鸡K萨_v5.json'
 
@@ -86,7 +86,7 @@ product_related = st.selectbox(
     ['all', '产品', '非产品']
 )
 # df_cleaned = (df[(df['category'] != '无标签')]).dropna()
-df_cleaned = df
+df_cleaned = df.dropna()
 if product_related == '产品':
     df_cleaned = df_cleaned[df_cleaned['product_related'] == 1]
 elif product_related == '非产品':
