@@ -1,0 +1,33 @@
+:root {
+    --brand-primary: #f18485;
+    --brand-secondary: #fabb34;
+    --grey: #545454;
+    --white: #FFF;
+}
+
+
+/* Loading spinner */
+.loader-3d {
+    top: calc(50% - 12.5px);
+    left: calc(50% - 100px);
+    position: absolute !important;
+  }
+  
+.loader-3d, .loader-3d:before, .loader-3d:after {
+    width: 200px;
+    height: 40px;
+    background: no-repeat;
+    background-image: radial-gradient(closest-side, var(--brand-primary) 100%, transparent), radial-gradient(closest-side, var(--brand-secondary) 100%, transparent);
+    background-size: 20px 20px, 20px 20px;
+    background-position: 0% center, 100% center;
+    position: absolute;
+    transform: translateZ(0);
+    animation: slide 1.5s cubic-bezier(.5,0,.5,1) infinite, zoom ease-out .75s infinite alternate;
+    content: '';
+}
+.loader-3d {
+    animation-delay: .5s;
+}
+.loader-3d:after {
+    animation-delay: 1s;
+}
