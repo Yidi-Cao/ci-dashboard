@@ -63,7 +63,7 @@ st.text(" ")
 st.text(" ")
 st.text(" ")
 
-product_name = '大盘鸡K萨'
+product_name = st.session_state.selected_product
 
 
 summary = load_json(st.session_state.summary_file_path)
@@ -298,7 +298,6 @@ if st.button('生成总结'):
         %例子结束
     '''
     openai, engine = init_gpt_4()
-
     prompt = {
         "system": system_prompt_template.format(product_name=product_name),
         "user": summarize_prompt_template.format(reviews=reviews),
