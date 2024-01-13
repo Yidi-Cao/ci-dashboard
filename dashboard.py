@@ -1,15 +1,11 @@
 import streamlit as st
 import plotly.express as px
-import numpy as np
 import openai
 import pandas as pd
-import matplotlib.pyplot as plt
-from inference import init_gpt_4, gpt_query_stream
+from inference import gpt_query_stream
 from streamlit_pills import pills
-from summarize import summarize
 import json
-from pathlib import Path
-from utils.general_utils import set_png_as_page_bg, display_props, my_progress_bar, display_pdf, display_image
+from utils.general_utils import set_png_as_page_bg, display_props
 
 # set_png_as_page_bg('static/background.png')
 
