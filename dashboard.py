@@ -122,22 +122,23 @@ if st.session_state['language'] == 0:
         df = pd.read_excel(st.session_state.file_path, sheet_name='Sheet1', engine='openpyxl')
         df_cleaned = df.dropna()
         df_cleaned = df_cleaned[df_cleaned['entity'] == product_name]
+        df_cleaned = df_cleaned[df_cleaned['category'] != '综合']
 
         st.write('请选择洞察维度：')
-        op1, op2, op3 = st.columns(3)
+        op1, op2= st.columns(2)
+        # with op1:
+        #     views = ['All', '产品视角', '非产品视角']
+        #     sel_view = st.selectbox('洞察视角', options=['All', '产品视角', '非产品视角'])
+        #     if sel_view == '产品视角':
+        #         df_cleaned = df_cleaned[df_cleaned['product_related'] == 1]
+        #     elif sel_view == '非产品视角':
+        #         df_cleaned = df_cleaned[df_cleaned['product_related'] == 0]
         with op1:
-            views = ['All', '产品视角', '非产品视角']
-            sel_view = st.selectbox('洞察视角', options=['All', '产品视角', '非产品视角'])
-            if sel_view == '产品视角':
-                df_cleaned = df_cleaned[df_cleaned['product_related'] == 1]
-            elif sel_view == '非产品视角':
-                df_cleaned = df_cleaned[df_cleaned['product_related'] == 0]
-        with op2:
             categories = ['All'] + df_cleaned['category'].drop_duplicates().tolist()
-            sel_category = st.selectbox('洞察维度', categories)
+            sel_category = st.selectbox('一级标签', categories)
             if sel_category != 'All':
                 df_cleaned = df_cleaned[df_cleaned['category'] == sel_category]
-        with op3:
+        with op2:
             parts = ['All'] + df_cleaned['parts'].drop_duplicates().tolist()
             sel_part = st.selectbox('组成部分', parts)
             if sel_part != 'All':
@@ -169,7 +170,7 @@ if st.session_state['language'] == 0:
         neg_percent = f"{100*neg_reviews.comment.nunique()/df_cleaned.comment.nunique():.2f}%"
 
         # Tag Summary Section
-        st.markdown(f'''#### :green[1. 总结报告]''')
+        st.markdown(f'''#### :green[1. 一级标签总结报告]''')
         with st.expander('**点击展开总结报告**'):
             if sel_category == 'All':
                 text = summary['All']
@@ -201,7 +202,7 @@ if st.session_state['language'] == 0:
                         }
                     )
                     chart_data_neg = chart_data_neg.sort_values(by='提及次数', ascending=True)
-                    fig = px.bar(chart_data_neg, y='维度', x='提及次数', orientation='h', title='负向评论维度分布', color_discrete_sequence=["#f6737c"])
+                    fig = px.bar(chart_data_neg, y='维度', x='提及次数', orientation='h', title=f'负向评论维度分布 (共{chart_data_neg.shape[0]}个标签)', color_discrete_sequence=["#f6737c"])
                     # fig = px.pie(chart_data, values='提及次数', names='维度', title='正向标签统计')
                     st.plotly_chart(fig)
 
@@ -213,7 +214,7 @@ if st.session_state['language'] == 0:
                         }
                     )
                     chart_data_pos = chart_data_pos.sort_values(by='提及次数', ascending=True)
-                    fig = px.bar(chart_data_pos, y='维度', x='提及次数', orientation='h', title='正向评论维度分布', color_discrete_sequence=["#09A5AD"])
+                    fig = px.bar(chart_data_pos, y='维度', x='提及次数', orientation='h', title=f'正向评论维度分布 (共{chart_data_pos.shape[0]}个标签)', color_discrete_sequence=["#09A5AD"])
                     # fig = px.pie(chart_data, values='提及次数', names='维度', title='正向标签统计')
                     st.plotly_chart(fig)
 
@@ -236,7 +237,7 @@ if st.session_state['language'] == 0:
                         "提及次数": neg_tag_aggregation['count'].tolist()
                     }
                 ).sort_values(by='提及次数', ascending=True)
-                fig = px.bar(chart_data_neg, y='标签', x='提及次数', orientation='h', title='负向标签统计', color_discrete_sequence=["#f6737c"], width=700)
+                fig = px.bar(chart_data_neg, y='标签', x='提及次数', orientation='h', title=f'负向标签统计 (共{chart_data_neg.shape[0]}个标签)', color_discrete_sequence=["#f6737c"], width=700)
                 st.plotly_chart(fig)
             if pos:
                 pos_tag_aggregation = pos_reviews.groupby('tag').size().reset_index(name='count')
@@ -246,7 +247,7 @@ if st.session_state['language'] == 0:
                         "提及次数": pos_tag_aggregation['count'].tolist()
                     }
                 ).sort_values(by="提及次数", ascending=True)
-                fig = px.bar(chart_data_pos, y='标签', x='提及次数', orientation='h', title='正向标签统计', color_discrete_sequence=["#09A5AD"], width=700)
+                fig = px.bar(chart_data_pos, y='标签', x='提及次数', orientation='h', title=f'正向标签统计 (共{chart_data_pos.shape[0]}个标签)', color_discrete_sequence=["#09A5AD"], width=700)
                 st.plotly_chart(fig)
 
         # aggregated_counts = df_filtered.groupby(['tag', 'sentiment']).size().unstack(fill_value=0).reset_index()
@@ -259,7 +260,7 @@ if st.session_state['language'] == 0:
 
 
         # pill section
-        st.markdown(f'''#### :green[4. 按标签筛选]''')
+        st.markdown(f'''#### :green[3. 二级标签下钻洞察]''')
         neg = st.checkbox("**负向观点**: 提及 " + str(len(neg_reviews)) + "次，占比" + neg_percent, value=True, key='5')
         pos = st.checkbox("**正向观点**: 提及 " + str(len(pos_reviews)) + "次，占比" + pos_percent, value=True, key='6')
         if pos and not neg:
@@ -357,6 +358,9 @@ if st.session_state['language'] == 0:
 
         with st.expander('点击展开消费者原始评论'):
             st.markdown("<div style='height:20px'> </div>", unsafe_allow_html=True)
+            df_table.index = df_table.index + 1
+            df_table = df_table[['Comment','Chunk','Sentiment','Parts','Category','Tag']]
+            df_table.columns = ['原始评论', '语块切分', '情感分类', '组成部分', '一级标签', '二级标签']
             st.table(df_table)
 
 if st.session_state['language'] == 1:
@@ -432,24 +436,25 @@ if st.session_state['language'] == 1:
         df['tag'] = df['tag'].map(mapper['tags'])
         df_cleaned = df.dropna()
         df_cleaned = df_cleaned[df_cleaned['entity'] == product_name]
+        df_cleaned = df_cleaned[df_cleaned['category'] != '综合']
 
         st.write('Please select dimension：')
-        op1, op2, op3 = st.columns(3)
+        op1, op2 = st.columns(2)
+        # with op1:
+        #     views = ['All', 'Product Related', 'Non Product Related']
+        #     sel_view = st.selectbox('Product or Not', options=['All', 'Product Related', 'Non Product Related'])
+        #     if sel_view == 'Product Related':
+        #         df_cleaned = df_cleaned[df_cleaned['product_related'] == 1]
+        #     elif sel_view == 'Non Product Related':
+        #         df_cleaned = df_cleaned[df_cleaned['product_related'] == 0]
         with op1:
-            views = ['All', 'Product Related', 'Non Product Related']
-            sel_view = st.selectbox('Product or Not', options=['All', 'Product Related', 'Non Product Related'])
-            if sel_view == 'Product Related':
-                df_cleaned = df_cleaned[df_cleaned['product_related'] == 1]
-            elif sel_view == 'Non Product Related':
-                df_cleaned = df_cleaned[df_cleaned['product_related'] == 0]
-        with op2:
             cat_mapper = mapper['category']
             cat_reverse_mapper = {cat_mapper[x]:x for x in cat_mapper}
             categories = ['All'] + [cat_mapper[x] for x in df_cleaned['category'].drop_duplicates().tolist()]
-            sel_category = cat_reverse_mapper[st.selectbox('Category', categories)]
+            sel_category = cat_reverse_mapper[st.selectbox('Tag Level 1', categories)]
             if sel_category != 'All':
                 df_cleaned = df_cleaned[df_cleaned['category'] == sel_category]
-        with op3:
+        with op2:
             parts_mapper = mapper[f'component_{display_name}']
             parts_reverse_mapper = {parts_mapper[x]: x for x in parts_mapper}
             parts = ['All'] +[parts_mapper[x] for x in df_cleaned['parts'].drop_duplicates().tolist()]
@@ -477,7 +482,7 @@ if st.session_state['language'] == 1:
         neg_percent = f"{100 * neg_reviews.comment.nunique() / df_cleaned.comment.nunique():.2f}%"
 
         # Tag Summary Section
-        st.markdown(f'''#### :green[1. General CI Reports]''')
+        st.markdown(f'''#### :green[1. Tag Level 1 Reports]''')
         with st.expander('**Click to Expand - General CI Reports**'):
             if sel_category == 'All':
                 text = summary['All']
@@ -490,10 +495,10 @@ if st.session_state['language'] == 1:
             st.markdown(f'##### {html_text}', unsafe_allow_html=True)
 
         # 如果category选择All，需要展开一级维度
-        st.markdown(f'''#### :green[2. Opinions Distribution]''')
+        st.markdown(f'''#### :green[2. Tags Distribution]''')
         if sel_category == 'All':
             # st.text(summary['general']['text'])
-            with st.expander("**Click to Expand - Distribution on Categories**"):
+            with st.expander("**Click to Expand - Distribution on Tag Level 1**"):
                 neg = st.checkbox("**Negative opinions**: " + str(len(neg_reviews)) + "times mentioned, " + neg_percent,
                                   value=True, key='1')
                 pos = st.checkbox("**Positive opinions**: " + str(len(pos_reviews)) + "times mentioned, " + pos_percent,
@@ -514,7 +519,7 @@ if st.session_state['language'] == 1:
                     chart_data_neg = chart_data_neg.sort_values(by='提及次数', ascending=True)
                     chart_data_neg.columns = ['Category', 'Counts']
                     chart_data_neg['Category'] = chart_data_neg['Category'].map(mapper['category'])
-                    fig = px.bar(chart_data_neg, y='Category', x='Counts', orientation='h', title='Negative Comments',
+                    fig = px.bar(chart_data_neg, y='Category', x='Counts', orientation='h', title=f'Negative Comments ({chart_data_neg.shape[0]} tags)',
                                  color_discrete_sequence=["#f6737c"])
                     # fig = px.pie(chart_data, values='提及次数', names='维度', title='正向标签统计')
                     st.plotly_chart(fig)
@@ -529,13 +534,13 @@ if st.session_state['language'] == 1:
                     chart_data_pos = chart_data_pos.sort_values(by='提及次数', ascending=True)
                     chart_data_pos.columns = ['Category', 'Counts']
                     chart_data_pos['Category'] = chart_data_pos['Category'].map(mapper['category'])
-                    fig = px.bar(chart_data_pos, y='Category', x='Counts', orientation='h', title='Positive Comments',
+                    fig = px.bar(chart_data_pos, y='Category', x='Counts', orientation='h', title=f'Positive Comments ({chart_data_pos.shape[0]} tags)',
                                  color_discrete_sequence=["#09A5AD"])
                     # fig = px.pie(chart_data, values='提及次数', names='维度', title='正向标签统计')
                     st.plotly_chart(fig)
 
         # 展开二级维度
-        with st.expander("**Click to Expand - Distribution on Tags**"):
+        with st.expander("**Click to Expand - Distribution on Tag Level 2**"):
             neg = st.checkbox("**Negative opinions**: " + str(len(neg_reviews)) + "times mentioned, " + neg_percent, value=True, key='3')
             pos = st.checkbox("**Positive opinions**: " + str(len(pos_reviews)) + "times mentioned, " + pos_percent, value=True, key='4')
             if pos and not neg:
@@ -554,7 +559,7 @@ if st.session_state['language'] == 1:
                     }
                 ).sort_values(by='提及次数', ascending=True)
                 chart_data_neg.columns = ['Tags', 'Counts']
-                fig = px.bar(chart_data_neg, y='Tags', x='Counts', orientation='h', title='Negative Comments',
+                fig = px.bar(chart_data_neg, y='Tags', x='Counts', orientation='h', title=f'Negative Comments ({chart_data_neg.shape[0]} tags)',
                              color_discrete_sequence=["#f6737c"], width=700)
                 st.plotly_chart(fig)
             if pos:
@@ -566,7 +571,7 @@ if st.session_state['language'] == 1:
                     }
                 ).sort_values(by="提及次数", ascending=True)
                 chart_data_pos.columns = ['Tags', 'Counts']
-                fig = px.bar(chart_data_pos, y='Tags', x='Counts', orientation='h', title='Positive Comments',
+                fig = px.bar(chart_data_pos, y='Tags', x='Counts', orientation='h', title=f'Positive Comments ({chart_data_pos.shape[0]} tags)',
                              color_discrete_sequence=["#09A5AD"], width=700)
                 st.plotly_chart(fig)
 
@@ -580,7 +585,7 @@ if st.session_state['language'] == 1:
 
 
         # pill section
-        st.markdown(f'''#### :green[3. Filter by Tag]''')
+        st.markdown(f'''#### :green[3. Tag Level 2 Deep Dive]''')
         neg = st.checkbox("**Negative opinions**: " + str(len(neg_reviews)) + "times mentioned, " + neg_percent, value=True,
                           key='5')
         pos = st.checkbox("**Positive opinions**: " + str(len(pos_reviews)) + "times mentioned, " + pos_percent, value=True,
@@ -686,4 +691,7 @@ if st.session_state['language'] == 1:
             df_table['Category'] = df_table['Category'].map(mapper['category'])
             df_table['Parts'] = df_table['Parts'].map(mapper[f'component_{display_name}'])
             df_table['Sentiment'] = df_table['Sentiment'].map({'正向':'Positive','负向':'Negative'})
+            df_table.index = df_table.index + 1
+            df_table = df_table[['Comment', 'Chunk', 'Sentiment', 'Parts', 'Category', 'Tag']]
+            df_table.columns = ['Raw Comment', 'Chunk', 'Sentiment', 'Components', 'Tag Level 1', 'Tag Level 2']
             st.table(df_table)
