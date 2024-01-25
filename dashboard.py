@@ -10,12 +10,22 @@ from utils.general_utils import set_png_as_page_bg, display_props
 # set_png_as_page_bg('static/background.png')
 
 display_props()
+# API for Dr Liao
+# client = openai.AzureOpenAI(
+#     api_key="10df9e66aea744219b6eab9074bc56fa",
+#     api_version="2023-12-01-preview",
+#     azure_endpoint="https://gc-openai-je.openai.azure.com/"
+# )
+# openai_model = "gpt4-for-DrLiao"
+
+# API for YumC
 client = openai.AzureOpenAI(
-    api_key="10df9e66aea744219b6eab9074bc56fa",
-    api_version="2023-12-01-preview",
-    azure_endpoint="https://gc-openai-je.openai.azure.com/"
+    api_key="3ddf85f581e142709dd8129aef144679",
+    api_version="2023-07-01-preview",
+    azure_endpoint="https://gpt4-for-shaojie.openai.azure.com/"
 )
-openai_model = "gpt4-for-DrLiao"
+openai_model = "gpt4-shaojie"
+
 if "openai_model" not in st.session_state:
     st.session_state["openai_model"] = openai_model
 
