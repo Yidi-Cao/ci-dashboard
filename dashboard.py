@@ -7,6 +7,7 @@ from streamlit_pills import pills
 import json
 import folium
 from streamlit_folium import st_folium
+import datetime
 from folium.plugins import HeatMap
 from wordcloud import wordcloud
 from utils.general_utils import set_png_as_page_bg, display_props
@@ -365,6 +366,9 @@ if st.session_state['language'] == 0:
             sel_province = 'All'
             sel_province_num = int(df_by_province['数据'].sum())
             st.write(f'**:green[所有省份] 地区，共有 :green[{sel_province_num}] 条标签为 :green[{sel_tag}] 的原始评论**')
+
+        date_start = st.date_input("起始日期", datetime.date(2019, 7, 6))
+        date_end = st.date_input("结束日期", datetime.date(2019, 7, 6))
 
         if st.button('生成总结'):
             st.session_state.reset_summary = True
