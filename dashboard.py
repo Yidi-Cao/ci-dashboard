@@ -678,7 +678,7 @@ if st.session_state['language'] == 1:
         st.text('')
 
         wc = wordcloud.WordCloud(
-            font_path='/System/Library/fonts/PingFang.ttc',  # 字体路劲
+            font_path='./images/PingFang.ttc',  # 字体路劲
             background_color='white',  # 背景颜色
             width=700,
             height=400,
