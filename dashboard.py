@@ -5,6 +5,10 @@ import pandas as pd
 from inference import gpt_query_stream
 from streamlit_pills import pills
 import json
+import folium
+from streamlit_folium import st_folium
+from folium.plugins import HeatMap
+from wordcloud import wordcloud
 from utils.general_utils import set_png_as_page_bg, display_props
 
 # set_png_as_page_bg('static/background.png')
@@ -51,7 +55,7 @@ def load_css(file_name: str):
 # load_css('./style/style.css')
 
 if "file_path" not in st.session_state:
-    st.session_state.file_path = './data/extracted_牛蛙塔可_v5.xlsx'
+    st.session_state.file_path = './data/extracted_牛蛙塔可_v5_geo.xlsx'
     st.session_state.selected_product = "牛蛙塔可"
     st.session_state.summary_file_path = './data/牛蛙塔可_summary.json'
 
@@ -67,7 +71,7 @@ def set_product_frog():
     if st.session_state['language'] == 1:
         st.session_state.prod_display_name = "Bullfrog Taco"
         st.session_state.summary_file_path = './data/牛蛙塔可_summary_en.json'
-    st.session_state.file_path = './data/extracted_牛蛙塔可_v5.xlsx'
+    st.session_state.file_path = './data/extracted_牛蛙塔可_v5_geo.xlsx'
 
 
 def set_product_crawfish():
@@ -78,7 +82,7 @@ def set_product_crawfish():
     if st.session_state['language'] == 1:
         st.session_state.prod_display_name = "Crawfish Taco"
         st.session_state.summary_file_path = './data/小龙虾塔可_summary_en.json'
-    st.session_state.file_path = './data/extracted_小龙虾塔可_v5.xlsx'
+    st.session_state.file_path = './data/extracted_小龙虾塔可_v5_geo.xlsx'
 
 
 def set_product_k_sa():
@@ -89,7 +93,7 @@ def set_product_k_sa():
     if st.session_state['language'] == 1:
         st.session_state.prod_display_name = "Braised Chicken K Pizza"
         st.session_state.summary_file_path = './data/大盘鸡K萨_summary_en.json'
-    st.session_state.file_path = './data/extracted_大盘鸡K萨_v5.xlsx'
+    st.session_state.file_path = './data/extracted_大盘鸡K萨_v5_geo.xlsx'
 
 
 # main page
@@ -281,33 +285,86 @@ if st.session_state['language'] == 0:
             df_filtered = df_cleaned
         if not pos and not neg:
             df_filtered = df_cleaned
+
+        st.text('')
+
+        wc = wordcloud.WordCloud(
+            font_path='/System/Library/fonts/PingFang.ttc',  # 字体路劲
+            background_color='white',  # 背景颜色
+            width=700,
+            height=300,
+            max_font_size=100,  # 字体大小
+            min_font_size=1,
+            collocations=False,
+            # mask=plt.imread('./images/shape.png'),
+            max_words=500
+        )
+        print(df_filtered['tag'].value_counts())
+        wc.generate(" ".join(df_filtered['tag']))
+        wc.to_file('./images/词云.png')
+        st.image('./images/词云.png', use_column_width='auto', caption='二级标签词云', output_format="png")
+
         pills_ops = df_filtered['tag'].dropna().value_counts().reset_index()
         pills_ops.columns = ['tag', 'count']
 
         pills_ops_with_count = pills_ops.sort_values(by='count', ascending=False)
-        pills_to_display = [f"{pill_count['tag']}: {pill_count['count']}" for _, pill_count in pills_ops_with_count.iterrows()]
+        pills_to_display = [f"🌈所有二级标签: {pills_ops_with_count['count'].sum()}"] + [f"{pill_count['tag']}: {pill_count['count']}" for _, pill_count in pills_ops_with_count.iterrows()]
 
-        emojis = ["🍀", "🎈", "🌈"]
-        emoji_list = []
+        # emojis = ["🍀", "🎈", "🌈"]
 
-        for _, row in pills_ops_with_count.iterrows():
-            if row['count'] >= 10:
-                emoji_list.append(emojis[1])
-            elif row['count'] > 5:
-                emoji_list.append(emojis[0])
-            else:
-                emoji_list.append(emojis[2])
-
-        sel_pill = pills("", options=pills_to_display, icons=emoji_list, clearable=True)
+        sel_pill = pills("", options=pills_to_display, clearable=True)
         if sel_pill:
             sel_tag = sel_pill.split(":")[0].replace(" ", "")
-            df_table = df_filtered.loc[df_filtered['tag'] == sel_tag]
+            if sel_tag == '🌈所有二级标签':
+                df_table = df_filtered
+            else:
+                df_table = df_filtered.loc[df_filtered['tag'] == sel_tag]
 
         st.markdown(f"**标签为 :green[{sel_tag}] 的原始评论：共{len(df_table)}条**")
-        df_table = df_table[['chunk', 'category', 'parts', 'sentiment', 'tag', 'comment']]
-        df_table.columns = ['Chunk', 'Category', 'Parts', 'Sentiment', 'Tag', 'Comment']
+        df_table = df_table[['chunk', 'category', 'parts', 'sentiment', 'tag', 'comment', 'province', 'survey_time']]
+        df_table.columns = ['Chunk', 'Category', 'Parts', 'Sentiment', 'Tag', 'Comment', 'Province', 'Timestamp']
         df_table.reset_index(drop=True, inplace=True)
         reviews = '\n\n'.join(df_table['Chunk'].tolist())
+
+        # 假设数据存储在一个名为df的DataFrame中，包含"省份"和"数据"列
+        df_by_province = df_table.groupby('Province').size().reset_index()
+        df_by_province.columns = ['省份', '数据']
+
+        # 创建一个空白地图
+        interactive_map = folium.Map(
+            location=[38, 105],
+            zoom_start=3.5,
+            scrollWheelZoom=False
+        )
+
+        provinces_map = json.loads(open("./images/china_province.geojson",'r').read().replace('自治区','').replace('回族','').replace('壮族','').replace('维吾尔',''))
+        provinces_list = pd.DataFrame({'省份':[x['properties']['NL_NAME_1'] for x in provinces_map['features']]})
+        df_by_province = df_by_province.merge(provinces_list, how='outer').fillna(0)
+        choropleth = folium.Choropleth(
+            geo_data=provinces_map,
+            # color="sunsetdark",
+            data=df_by_province,
+            columns=('省份','数据'),
+            key_on='properties.NL_NAME_1',
+            line_opacity=0.5,
+            highlight=True
+        )
+        choropleth.geojson.add_to(interactive_map)
+        st_map = st_folium(interactive_map, width=700, height=600)
+        if st.button('选择所有省份'):
+            st_map['last_object_clicked'] = None
+        if st_map['last_object_clicked'] is not None:
+            sel_province = st_map['last_active_drawing']['properties']['NL_NAME_1']
+            try:
+                sel_province_num = int(df_by_province.loc[df_by_province['省份'] == sel_province, '数据'].values[0])
+            except:
+                sel_province_num = 0
+            st.write(
+                f'**:green[{sel_province}] 地区，共有 :green[{sel_province_num}] 条标签为 :green[{sel_tag}] 的原始评论**')
+        else:
+            sel_province = 'All'
+            sel_province_num = int(df_by_province['数据'].sum())
+            st.write(f'**:green[所有省份] 地区，共有 :green[{sel_province_num}] 条标签为 :green[{sel_tag}] 的原始评论**')
 
         if st.button('生成总结'):
             st.session_state.reset_summary = True
@@ -320,10 +377,10 @@ if st.session_state['language'] == 0:
         - 根据用户评论，总结观点，告诉我用户观点主要集中在哪些方面，哪些方面占比比较高
         - 总结需要结构化,以bullet形式输出，要求逻辑严谨，观点不重复不遗漏，MECE
         - don't make up an answer，观点要有输入用户评论作为依据
-        
+
         用户评论:
         {reviews}
-        
+
         %例子开始
         根据消费者评论分析极氪刹车存在较多负面反馈 。主要痛点集中在 刹车
         前段过软 无法提供足够制动力 导致踩刹车的制动距离过长、 刹车反应
@@ -369,9 +426,14 @@ if st.session_state['language'] == 0:
         with st.expander('点击展开消费者原始评论'):
             st.markdown("<div style='height:20px'> </div>", unsafe_allow_html=True)
             df_table.index = df_table.index + 1
-            df_table = df_table[['Comment','Chunk','Sentiment','Parts','Category','Tag']]
-            df_table.columns = ['原始评论', '语块切分', '情感分类', '组成部分', '一级标签', '二级标签']
-            st.table(df_table)
+            if sel_province != 'All':
+                df_show = df_table[df_table['Province'] == sel_province]
+            else:
+                df_show = df_table
+            if df_show.shape[0] > 0:
+                df_show = df_show[['Comment', 'Chunk', 'Sentiment', 'Parts', 'Category', 'Tag']]
+                df_show.columns = ['原始评论', '语块切分', '情感分类', '组成部分', '一级标签', '二级标签']
+                st.table(df_show)
 
 if st.session_state['language'] == 1:
 
@@ -608,6 +670,23 @@ if st.session_state['language'] == 1:
             df_filtered = df_cleaned
         if not pos and not neg:
             df_filtered = df_cleaned
+
+        st.text('')
+
+        wc = wordcloud.WordCloud(
+            font_path='/System/Library/fonts/PingFang.ttc',  # 字体路劲
+            background_color='white',  # 背景颜色
+            width=700,
+            height=400,
+            max_font_size=80,  # 字体大小
+            min_font_size=10,
+            # mask=plt.imread('./images/shape.png'),
+            max_words=10000
+        )
+        wc.generate(" ".join(df_filtered['tag']))
+        wc.to_file('./images/词云_eng.png')
+        st.image('./images/词云_eng.png', use_column_width='auto', caption='Wordcould on Level Labels', output_format="png")
+
         pills_ops = df_filtered['tag'].dropna().value_counts().reset_index()
         pills_ops.columns = ['tag', 'count']
 
