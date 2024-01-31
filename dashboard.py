@@ -39,8 +39,6 @@ options = list(range(len(lang)))
 st.session_state['language'] = st.sidebar.radio("语言/Language", options, format_func=lambda x: lang[x])
 
 st.sidebar.info(f'''Logged in: **Edgar Cao**\ncao.edgar@bcg.com''')
-st.sidebar.divider()
-
 
 def load_json(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -114,15 +112,28 @@ if st.session_state['language'] == 0:
         st.session_state['prod_display_name'] = mapper['product'][st.session_state['prod_display_name']]
 
     st.sidebar.header("消费者洞察分析")
-    st.sidebar.button("**牛蛙塔可** \n\n",
-                      use_container_width=True,
-                      on_click=set_product_frog)
-    st.sidebar.button("**小龙虾塔可** \n\n",
-                      use_container_width=True,
-                      on_click=set_product_crawfish)
-    st.sidebar.button("**大盘鸡K萨** \n\n ",
-                      use_container_width=True,
-                      on_click=set_product_k_sa)
+    fnames = (
+        '牛蛙塔可',
+        '小龙虾塔可',
+        '大盘鸡K萨'
+    )
+    options = list(range(len(fnames)))
+    k = st.sidebar.selectbox("请选择要分析的新产品", options, format_func=lambda x: fnames[x])
+    if k == 0:
+        set_product_frog()
+    elif k == 1:
+        set_product_crawfish()
+    elif k == 2:
+        set_product_k_sa()
+    # st.sidebar.button("**牛蛙塔可** \n\n",
+    #                   use_container_width=True,
+    #                   on_click=set_product_frog)
+    # st.sidebar.button("**小龙虾塔可** \n\n",
+    #                   use_container_width=True,
+    #                   on_click=set_product_crawfish)
+    # st.sidebar.button("**大盘鸡K萨** \n\n ",
+    #                   use_container_width=True,
+    #                   on_click=set_product_k_sa)
 
     product_name = st.session_state.selected_product
     display_name = st.session_state.prod_display_name
@@ -139,25 +150,18 @@ if st.session_state['language'] == 0:
         df_cleaned = df_cleaned[df_cleaned['entity'] == product_name]
         df_cleaned = df_cleaned[df_cleaned['category'] != '综合']
 
-        st.write('请选择洞察维度：')
-        op1, op2= st.columns(2)
+        st.sidebar.write('**请选择洞察维度**')
+        # op1, op2= st.columns(2)
         # with op1:
-        #     views = ['All', '产品视角', '非产品视角']
-        #     sel_view = st.selectbox('洞察视角', options=['All', '产品视角', '非产品视角'])
-        #     if sel_view == '产品视角':
-        #         df_cleaned = df_cleaned[df_cleaned['product_related'] == 1]
-        #     elif sel_view == '非产品视角':
-        #         df_cleaned = df_cleaned[df_cleaned['product_related'] == 0]
-        with op1:
-            categories = ['All'] + df_cleaned['category'].drop_duplicates().tolist()
-            sel_category = st.selectbox('一级标签', categories)
-            if sel_category != 'All':
-                df_cleaned = df_cleaned[df_cleaned['category'] == sel_category]
-        with op2:
-            parts = ['All'] + df_cleaned['parts'].drop_duplicates().tolist()
-            sel_part = st.selectbox('组成部分', parts)
-            if sel_part != 'All':
-                df_cleaned = df_cleaned[df_cleaned['parts'] == sel_part]
+        categories = ['All'] + df_cleaned['category'].drop_duplicates().tolist()
+        sel_category = st.sidebar.selectbox('一级标签', categories)
+        if sel_category != 'All':
+            df_cleaned = df_cleaned[df_cleaned['category'] == sel_category]
+        # with op2:
+        parts = ['All'] + df_cleaned['parts'].drop_duplicates().tolist()
+        sel_part = st.sidebar.selectbox('组成部分', parts)
+        if sel_part != 'All':
+            df_cleaned = df_cleaned[df_cleaned['parts'] == sel_part]
 
         # "op", option
         if sel_category == 'All':
@@ -276,100 +280,139 @@ if st.session_state['language'] == 0:
 
         # pill section
         st.markdown(f'''#### :green[3. 二级标签下钻洞察]''')
-        neg = st.checkbox("**负向观点**: 提及 " + str(len(neg_reviews)) + "次，占比" + neg_percent, value=True, key='5')
-        pos = st.checkbox("**正向观点**: 提及 " + str(len(pos_reviews)) + "次，占比" + pos_percent, value=True, key='6')
-        if pos and not neg:
-            df_filtered = pos_reviews
-        if neg and not pos:
-            df_filtered = neg_reviews
-        if pos and neg:
-            df_filtered = df_cleaned
-        if not pos and not neg:
-            df_filtered = df_cleaned
+        with st.expander('**点击展开消费者观点词云**'):
+            neg = st.checkbox("**负向观点**: 提及 " + str(len(neg_reviews)) + "次，占比" + neg_percent, value=True, key='5')
+            pos = st.checkbox("**正向观点**: 提及 " + str(len(pos_reviews)) + "次，占比" + pos_percent, value=True, key='6')
+            if pos and not neg:
+                df_filtered = pos_reviews
+            if neg and not pos:
+                df_filtered = neg_reviews
+            if pos and neg:
+                df_filtered = df_cleaned
+            if not pos and not neg:
+                df_filtered = df_cleaned
 
-        st.text('')
+            st.text('')
 
-        wc = wordcloud.WordCloud(
-            font_path='/System/Library/fonts/PingFang.ttc',  # 字体路劲
-            background_color='white',  # 背景颜色
-            width=700,
-            height=300,
-            max_font_size=100,  # 字体大小
-            min_font_size=1,
-            collocations=False,
-            # mask=plt.imread('./images/shape.png'),
-            max_words=500
-        )
-        print(df_filtered['tag'].value_counts())
-        wc.generate(" ".join(df_filtered['tag']))
-        wc.to_file('./images/词云.png')
-        st.image('./images/词云.png', use_column_width='auto', caption='二级标签词云', output_format="png")
+            wc = wordcloud.WordCloud(
+                font_path='/System/Library/fonts/PingFang.ttc',  # 字体路劲
+                background_color='white',  # 背景颜色
+                width=700,
+                height=300,
+                max_font_size=100,  # 字体大小
+                min_font_size=1,
+                collocations=False,
+                # mask=plt.imread('./images/shape.png'),
+                max_words=500
+            )
+            print(df_filtered['tag'].value_counts())
+            wc.generate(" ".join(df_filtered['tag']))
+            wc.to_file('./images/词云.png')
+            st.image('./images/词云.png', use_column_width='auto', caption='二级标签词云', output_format="png")
 
-        pills_ops = df_filtered['tag'].dropna().value_counts().reset_index()
-        pills_ops.columns = ['tag', 'count']
+        with st.expander('**点击下钻二级标签**'):
+            pills_ops = df_filtered['tag'].dropna().value_counts().reset_index()
+            pills_ops.columns = ['tag', 'count']
 
-        pills_ops_with_count = pills_ops.sort_values(by='count', ascending=False)
-        pills_to_display = [f"🌈所有二级标签: {pills_ops_with_count['count'].sum()}"] + [f"{pill_count['tag']}: {pill_count['count']}" for _, pill_count in pills_ops_with_count.iterrows()]
+            pills_ops_with_count = pills_ops.sort_values(by='count', ascending=False)
+            pills_to_display = [f"🌈所有二级标签: {pills_ops_with_count['count'].sum()}"] + [f"{pill_count['tag']}: {pill_count['count']}" for _, pill_count in pills_ops_with_count.iterrows()]
 
-        # emojis = ["🍀", "🎈", "🌈"]
+            # emojis = ["🍀", "🎈", "🌈"]
 
-        sel_pill = pills("", options=pills_to_display, clearable=True)
-        if sel_pill:
-            sel_tag = sel_pill.split(":")[0].replace(" ", "")
-            if sel_tag == '🌈所有二级标签':
-                df_table = df_filtered
+            sel_pill = pills("", options=pills_to_display, clearable=True)
+            if sel_pill:
+                sel_tag = sel_pill.split(":")[0].replace(" ", "")
+                if sel_tag == '🌈所有二级标签':
+                    df_table = df_filtered
+                else:
+                    df_table = df_filtered.loc[df_filtered['tag'] == sel_tag]
+
+            st.markdown(f"**标签为 :green[{sel_tag}] 的原始评论：共{len(df_table)}条**")
+            df_table = df_table[['chunk', 'category', 'parts', 'sentiment', 'tag', 'comment', 'province', 'survey_time']]
+            df_table.columns = ['Chunk', 'Category', 'Parts', 'Sentiment', 'Tag', 'Comment', 'Province', 'Timestamp']
+            df_table['Date'] = pd.to_datetime(df_table['Timestamp']).dt.date
+            df_table.reset_index(drop=True, inplace=True)
+            reviews = '\n\n'.join(df_table['Chunk'].tolist())
+
+            # 假设数据存储在一个名为df的DataFrame中，包含"省份"和"数据"列
+            df_by_province = df_table.groupby('Province').size().reset_index()
+            df_by_province.columns = ['省份', '数据']
+
+            # 创建一个空白地图
+            interactive_map = folium.Map(
+                location=[38, 105],
+                zoom_start=3.5,
+                scrollWheelZoom=False
+            )
+
+            provinces_map = json.loads(open("./images/china_province.geojson",'r').read().replace('自治区','').replace('回族','').replace('壮族','').replace('维吾尔',''))
+            provinces_list = pd.DataFrame({'省份':[x['properties']['NL_NAME_1'] for x in provinces_map['features']]})
+            df_by_province = df_by_province.merge(provinces_list, how='outer').fillna(0)
+            choropleth = folium.Choropleth(
+                geo_data=provinces_map,
+                # color="sunsetdark",
+                data=df_by_province,
+                columns=('省份','数据'),
+                key_on='properties.NL_NAME_1',
+                line_opacity=0.5,
+                highlight=True
+            )
+            choropleth.geojson.add_to(interactive_map)
+            st_map = st_folium(interactive_map, width=700, height=600)
+            if st.button('选择所有省份'):
+                st_map['last_object_clicked'] = None
+            if st_map['last_object_clicked'] is not None:
+                sel_province = st_map['last_active_drawing']['properties']['NL_NAME_1']
+                try:
+                    sel_province_num = int(df_by_province.loc[df_by_province['省份'] == sel_province, '数据'].values[0])
+                except:
+                    sel_province_num = 0
+                st.write(
+                    f'**:green[{sel_province}] 地区，共有 :green[{sel_province_num}] 条标签为 :green[{sel_tag}] 的原始评论**')
             else:
-                df_table = df_filtered.loc[df_filtered['tag'] == sel_tag]
+                sel_province = 'All'
+                sel_province_num = int(df_by_province['数据'].sum())
+                st.write(f'**:green[所有省份] 地区，共有 :green[{sel_province_num}] 条标签为 :green[{sel_tag}] 的原始评论**')
 
-        st.markdown(f"**标签为 :green[{sel_tag}] 的原始评论：共{len(df_table)}条**")
-        df_table = df_table[['chunk', 'category', 'parts', 'sentiment', 'tag', 'comment', 'province', 'survey_time']]
-        df_table.columns = ['Chunk', 'Category', 'Parts', 'Sentiment', 'Tag', 'Comment', 'Province', 'Timestamp']
-        df_table.reset_index(drop=True, inplace=True)
-        reviews = '\n\n'.join(df_table['Chunk'].tolist())
 
-        # 假设数据存储在一个名为df的DataFrame中，包含"省份"和"数据"列
-        df_by_province = df_table.groupby('Province').size().reset_index()
-        df_by_province.columns = ['省份', '数据']
+        with st.expander('**点击展开消费者原始评论**'):
+            st.markdown("<div style='height:20px'> </div>", unsafe_allow_html=True)
+            df_table.index = df_table.index + 1
+            if sel_province != 'All':
+                df_show = df_table[df_table['Province'] == sel_province]
+            else:
+                df_show = df_table
+            if df_show.shape[0] > 0:
+                df_show = df_show[['Comment', 'Chunk', 'Sentiment', 'Parts', 'Category', 'Tag']]
+                df_show.columns = ['原始评论', '语块切分', '情感分类', '组成部分', '一级标签', '二级标签']
+                st.table(df_show)
 
-        # 创建一个空白地图
-        interactive_map = folium.Map(
-            location=[38, 105],
-            zoom_start=3.5,
-            scrollWheelZoom=False
-        )
+        with st.expander('**点击展开VOC变化趋势分析**'):
+            op1, op2 = st.columns(2)
+            with op1:
+                st.write('**请定义旧时段**')
+                date_start_1 = st.date_input("起始日期", datetime.date(2023, 7, 21))
+                date_end_1 = st.date_input("结束日期", datetime.date(2023, 7, 22))
+                df_table_window_1 = df_table[(df_table['Date']>=date_start_1) & (df_table['Date']<date_end_1)]
+                df_table_window_1 = df_table_window_1.groupby('Tag').size().sort_values(ascending=False).reset_index()
+                df_table_window_1.columns = ['二级标签', '旧时段评论数量']
+            with op2:
+                st.write('**请定义新时段**')
+                date_start_2 = st.date_input("起始日期", datetime.date(2023, 7, 23))
+                date_end_2 = st.date_input("结束日期", datetime.date(2023, 7, 24))
+                df_table_window_2 = df_table[(df_table['Date'] >= date_start_2) & (df_table['Date'] < date_end_2)]
+                df_table_window_2 = df_table_window_2.groupby('Tag').size().sort_values(ascending=False).reset_index()
+                df_table_window_2.columns = ['二级标签', '新时段评论数量']
+            df_table_compare = df_table_window_1.merge(df_table_window_2, how='outer', on='二级标签').fillna(0)
+            df_table_compare['旧时段评论数量'] = df_table_compare['旧时段评论数量'].astype(int)
+            df_table_compare['新时段评论数量'] = df_table_compare['新时段评论数量'].astype(int)
+            df_table_compare['变化'] = (df_table_compare['新时段评论数量']-df_table_compare['旧时段评论数量']) / df_table_compare['旧时段评论数量'] * 100
+            df_table_compare = df_table_compare.round({'变化': 2})
+            df_table_compare['变化'] = df_table_compare['变化'].astype(str) + '%'
+            df_table_compare.index += 1
+            st.table(df_table_compare)
 
-        provinces_map = json.loads(open("./images/china_province.geojson",'r').read().replace('自治区','').replace('回族','').replace('壮族','').replace('维吾尔',''))
-        provinces_list = pd.DataFrame({'省份':[x['properties']['NL_NAME_1'] for x in provinces_map['features']]})
-        df_by_province = df_by_province.merge(provinces_list, how='outer').fillna(0)
-        choropleth = folium.Choropleth(
-            geo_data=provinces_map,
-            # color="sunsetdark",
-            data=df_by_province,
-            columns=('省份','数据'),
-            key_on='properties.NL_NAME_1',
-            line_opacity=0.5,
-            highlight=True
-        )
-        choropleth.geojson.add_to(interactive_map)
-        st_map = st_folium(interactive_map, width=700, height=600)
-        if st.button('选择所有省份'):
-            st_map['last_object_clicked'] = None
-        if st_map['last_object_clicked'] is not None:
-            sel_province = st_map['last_active_drawing']['properties']['NL_NAME_1']
-            try:
-                sel_province_num = int(df_by_province.loc[df_by_province['省份'] == sel_province, '数据'].values[0])
-            except:
-                sel_province_num = 0
-            st.write(
-                f'**:green[{sel_province}] 地区，共有 :green[{sel_province_num}] 条标签为 :green[{sel_tag}] 的原始评论**')
-        else:
-            sel_province = 'All'
-            sel_province_num = int(df_by_province['数据'].sum())
-            st.write(f'**:green[所有省份] 地区，共有 :green[{sel_province_num}] 条标签为 :green[{sel_tag}] 的原始评论**')
-
-        date_start = st.date_input("起始日期", datetime.date(2019, 7, 6))
-        date_end = st.date_input("结束日期", datetime.date(2019, 7, 6))
-
+        st.markdown(f'''#### :green[4. 在线生成观点总结]''')
         if st.button('生成总结'):
             st.session_state.reset_summary = True
             system_prompt = f'''
@@ -427,17 +470,7 @@ if st.session_state['language'] == 0:
                 response_text += item
                 message_col.write(response_text)
 
-        with st.expander('点击展开消费者原始评论'):
-            st.markdown("<div style='height:20px'> </div>", unsafe_allow_html=True)
-            df_table.index = df_table.index + 1
-            if sel_province != 'All':
-                df_show = df_table[df_table['Province'] == sel_province]
-            else:
-                df_show = df_table
-            if df_show.shape[0] > 0:
-                df_show = df_show[['Comment', 'Chunk', 'Sentiment', 'Parts', 'Category', 'Tag']]
-                df_show.columns = ['原始评论', '语块切分', '情感分类', '组成部分', '一级标签', '二级标签']
-                st.table(df_show)
+
 
 if st.session_state['language'] == 1:
 
