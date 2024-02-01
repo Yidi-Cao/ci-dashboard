@@ -1,3 +1,5 @@
+import os.path
+
 import streamlit as st
 import plotly.express as px
 import openai
@@ -294,21 +296,24 @@ if st.session_state['language'] == 0:
 
             st.text('')
 
-            wc = wordcloud.WordCloud(
-                font_path='/System/Library/fonts/PingFang.ttc',  # 字体路劲
-                background_color='white',  # 背景颜色
-                width=700,
-                height=300,
-                max_font_size=100,  # 字体大小
-                min_font_size=1,
-                collocations=False,
-                # mask=plt.imread('./images/shape.png'),
-                max_words=500
-            )
-            print(df_filtered['tag'].value_counts())
-            wc.generate(" ".join(df_filtered['tag']))
-            wc.to_file('./images/词云.png')
-            st.image('./images/词云.png', use_column_width='auto', caption='二级标签词云', output_format="png")
+            if df_filtered.shape[0] > 0:
+                image_path = f'./images/词云_{sel_category}_{sel_part}_{neg}_{pos}.png'
+                if not os.path.exists(image_path):
+                    wc = wordcloud.WordCloud(
+                        font_path='/System/Library/fonts/PingFang.ttc',  # 字体路劲
+                        background_color='white',  # 背景颜色
+                        width=700,
+                        height=300,
+                        max_font_size=100,  # 字体大小
+                        min_font_size=1,
+                        collocations=False,
+                        # mask=plt.imread('./images/shape.png'),
+                        max_words=500
+                    )
+                    print(df_filtered['tag'].value_counts())
+                    wc.generate(" ".join(df_filtered['tag']))
+                    wc.to_file(image_path)
+                st.image(image_path, use_column_width='auto', caption='二级标签词云', output_format="png")
 
         with st.expander('**点击下钻二级标签**'):
             pills_ops = df_filtered['tag'].dropna().value_counts().reset_index()
