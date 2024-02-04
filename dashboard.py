@@ -1,4 +1,5 @@
 import os.path
+import io
 
 import streamlit as st
 import plotly.express as px
@@ -10,11 +11,11 @@ import json
 import folium
 from streamlit_folium import st_folium
 import datetime
-from folium.plugins import HeatMap
 from wordcloud import wordcloud
-from utils.general_utils import set_png_as_page_bg, display_props
+from utils.general_utils import display_props
 
 # set_png_as_page_bg('static/background.png')
+st.set_page_config(layout="wide")
 
 display_props()
 # API for Dr Liao
@@ -164,6 +165,11 @@ if st.session_state['language'] == 0:
         sel_part = st.sidebar.selectbox('组成部分', parts)
         if sel_part != 'All':
             df_cleaned = df_cleaned[df_cleaned['parts'] == sel_part]
+        # with op3:
+        sources = ['All', '大众点评', '小红书', '微博', 'Ticktok', 'Facebook', 'Yelp']
+        sel_src = st.sidebar.multiselect("数据源", sources, default=['小红书'])
+        if st.sidebar.button('点击上传新数据源'):
+            pass
 
         # "op", option
         if sel_category == 'All':
@@ -178,12 +184,6 @@ if st.session_state['language'] == 0:
         neg_cat_aggregation = neg_cat_aggregation.sort_values(by='count', ascending=False)
         pos_cat_aggregation = pos_reviews.groupby('category').size().reset_index(name='count')
         pos_cat_aggregation = pos_cat_aggregation.sort_values(by='count', ascending=False)
-
-        print('='*40)
-        print(neg_cat_aggregation)
-        print('-'*40)
-        print(pos_cat_aggregation)
-        print('='*40)
 
         st.text('')
         st.text('')
@@ -207,15 +207,8 @@ if st.session_state['language'] == 0:
         st.markdown(f'''#### :green[2. 洞察维度分布]''')
         if sel_category == 'All':
             with st.expander("**点击展开洞察维度 - 一级标签**"):
-                neg = st.checkbox("**负向观点**: 提及 " + str(len(neg_reviews)) + "次，占比" + neg_percent, value=True, key='1')
-                pos = st.checkbox("**正向观点**: 提及 " + str(len(pos_reviews)) + "次，占比" + pos_percent, value=True, key='2')
-                if pos and not neg:
-                    df_filtered = pos_reviews
-                if neg and not pos:
-                    df_filtered = neg_reviews
-                if pos and neg:
-                    df_filtered = df_cleaned
-                if neg:
+                op1, op2 = st.columns(2)
+                with op1:
                     chart_data_neg = pd.DataFrame(
                         {
                             "维度": neg_cat_aggregation['category'].tolist(),
@@ -223,11 +216,10 @@ if st.session_state['language'] == 0:
                         }
                     )
                     chart_data_neg = chart_data_neg.sort_values(by='提及次数', ascending=True)
-                    fig = px.bar(chart_data_neg, y='维度', x='提及次数', orientation='h', title=f'负向评论维度分布 (共{chart_data_neg.shape[0]}个标签)', color_discrete_sequence=["#f6737c"])
+                    fig = px.bar(chart_data_neg, y='维度', x='提及次数', orientation='h', title=f'负向评论维度分布 (共{chart_data_neg.shape[0]}个标签，提及{len(neg_reviews)}次，占比{neg_percent})', color_discrete_sequence=["#f6737c"])
                     # fig = px.pie(chart_data, values='提及次数', names='维度', title='正向标签统计')
-                    st.plotly_chart(fig)
-
-                if pos:
+                    st.plotly_chart(fig, use_container_width=True)
+                with op2:
                     chart_data_pos = pd.DataFrame(
                         {
                             "维度": pos_cat_aggregation['category'].tolist(),
@@ -235,21 +227,14 @@ if st.session_state['language'] == 0:
                         }
                     )
                     chart_data_pos = chart_data_pos.sort_values(by='提及次数', ascending=True)
-                    fig = px.bar(chart_data_pos, y='维度', x='提及次数', orientation='h', title=f'正向评论维度分布 (共{chart_data_pos.shape[0]}个标签)', color_discrete_sequence=["#09A5AD"])
+                    fig = px.bar(chart_data_pos, y='维度', x='提及次数', orientation='h', title=f'正向评论维度分布 (共{chart_data_pos.shape[0]}个标签，提及{len(pos_reviews)}次，占比{pos_percent})', color_discrete_sequence=["#09A5AD"])
                     # fig = px.pie(chart_data, values='提及次数', names='维度', title='正向标签统计')
-                    st.plotly_chart(fig)
+                    st.plotly_chart(fig, use_container_width=True)
 
         # 展开二级维度
         with st.expander("**点击展开标签分布 - 二级标签**"):
-            neg = st.checkbox("**负向观点**: 提及 " + str(len(neg_reviews)) + "次，占比" + neg_percent, value=True, key='3')
-            pos = st.checkbox("**正向观点**: 提及 " + str(len(pos_reviews)) + "次，占比" + pos_percent, value=True, key='4')
-            if pos and not neg:
-                df_filtered = pos_reviews
-            if neg and not pos:
-                df_filtered = neg_reviews
-            if pos and neg:
-                df_filtered = df_cleaned
-            if neg:
+            op1, op2 = st.columns(2)
+            with op1:
                 neg_tag_aggregation = neg_reviews.groupby('tag').size().reset_index(name='count')
                 neg_tag_aggregation = neg_tag_aggregation.sort_values(by='count', ascending=False)
                 chart_data_neg = pd.DataFrame(
@@ -257,19 +242,28 @@ if st.session_state['language'] == 0:
                         "标签": neg_tag_aggregation['tag'].tolist(),
                         "提及次数": neg_tag_aggregation['count'].tolist()
                     }
-                ).sort_values(by='提及次数', ascending=True)
-                fig = px.bar(chart_data_neg, y='标签', x='提及次数', orientation='h', title=f'负向标签统计 (共{chart_data_neg.shape[0]}个标签)', color_discrete_sequence=["#f6737c"], width=700)
-                st.plotly_chart(fig)
-            if pos:
+                ).sort_values(by='提及次数', ascending=False).reset_index(drop=True)
+                chart_data_neg.index += 1
+                st.markdown(
+                    f"**负向观点 (共{chart_data_neg.shape[0]}个标签，提及{len(neg_reviews)}次，占比{neg_percent})**")
+                st.table(chart_data_neg)
+              #  fig = px.bar(chart_data_neg, y='标签', x='提及次数', orientation='h', title=f'负向标签统计 (共{chart_data_neg.shape[0]}个标签)', color_discrete_sequence=["#f6737c"], width=700)
+              #  st.plotly_chart(fig)
+
+            with op2:
                 pos_tag_aggregation = pos_reviews.groupby('tag').size().reset_index(name='count')
                 chart_data_pos = pd.DataFrame(
                     {
                         "标签": pos_tag_aggregation['tag'].tolist(),
                         "提及次数": pos_tag_aggregation['count'].tolist()
                     }
-                ).sort_values(by="提及次数", ascending=True)
-                fig = px.bar(chart_data_pos, y='标签', x='提及次数', orientation='h', title=f'正向标签统计 (共{chart_data_pos.shape[0]}个标签)', color_discrete_sequence=["#09A5AD"], width=700)
-                st.plotly_chart(fig)
+                ).sort_values(by="提及次数", ascending=False).reset_index(drop=True)
+                chart_data_neg.index += 1
+                st.markdown(
+                    f"**正向观点 (共{chart_data_pos.shape[0]}个标签，提及{len(pos_reviews)}次，占比{pos_percent})**")
+                st.table(chart_data_pos)
+              #  fig = px.bar(chart_data_pos, y='标签', x='提及次数', orientation='h', title=f'正向标签统计 (共{chart_data_pos.shape[0]}个标签)', color_discrete_sequence=["#09A5AD"], width=700)
+              #  st.plotly_chart(fig)
 
         # aggregated_counts = df_filtered.groupby(['tag', 'sentiment']).size().unstack(fill_value=0).reset_index()
         # result_array = aggregated_counts.to_numpy()
@@ -313,83 +307,161 @@ if st.session_state['language'] == 0:
                     print(df_filtered['tag'].value_counts())
                     wc.generate(" ".join(df_filtered['tag']))
                     wc.to_file(image_path)
-                st.image(image_path, use_column_width='auto', caption='二级标签词云', output_format="png")
+                st.image(image_path, use_column_width=True, caption='二级标签词云', output_format="png")
 
-        with st.expander('**点击下钻二级标签**'):
-            pills_ops = df_filtered['tag'].dropna().value_counts().reset_index()
-            pills_ops.columns = ['tag', 'count']
+        with st.expander('**点击深入挖掘二级标签**'):
+            op1, op2 = st.columns(2)
+            with op1:
+                st.markdown('**1. 选择关注的二级标签**')
+                pills_ops = df_filtered['tag'].dropna().value_counts().reset_index()
+                pills_ops.columns = ['tag', 'count']
 
-            pills_ops_with_count = pills_ops.sort_values(by='count', ascending=False)
-            pills_to_display = [f"🌈所有二级标签: {pills_ops_with_count['count'].sum()}"] + [f"{pill_count['tag']}: {pill_count['count']}" for _, pill_count in pills_ops_with_count.iterrows()]
+                pills_ops_with_count = pills_ops.sort_values(by='count', ascending=False)
+                pills_to_display = [f"🌈所有二级标签: {pills_ops_with_count['count'].sum()}"] + [f"{pill_count['tag']}: {pill_count['count']}" for _, pill_count in pills_ops_with_count.iterrows()]
 
-            # emojis = ["🍀", "🎈", "🌈"]
+                # emojis = ["🍀", "🎈", "🌈"]
 
-            sel_pill = pills("", options=pills_to_display, clearable=True)
-            if sel_pill:
-                sel_tag = sel_pill.split(":")[0].replace(" ", "")
-                if sel_tag == '🌈所有二级标签':
-                    df_table = df_filtered
+                sel_pill = pills("", options=pills_to_display, clearable=True)
+                if sel_pill:
+                    sel_tag = sel_pill.split(":")[0].replace(" ", "")
+                    if sel_tag == '🌈所有二级标签':
+                        df_table = df_filtered
+                    else:
+                        df_table = df_filtered.loc[df_filtered['tag'] == sel_tag]
+
+                st.markdown(f"**标签为 :green[{sel_tag}] 的原始评论：共{len(df_table)}条**")
+                df_table = df_table[['chunk', 'category', 'parts', 'sentiment', 'tag', 'comment', 'province', 'survey_time']]
+                df_table.columns = ['Chunk', 'Category', 'Parts', 'Sentiment', 'Tag', 'Comment', 'Province', 'Timestamp']
+                df_table['Date'] = pd.to_datetime(df_table['Timestamp']).dt.date
+                df_table.reset_index(drop=True, inplace=True)
+
+            with op2:
+                st.markdown('**2. 选择关注地理区域**')
+                st.text('')
+                # 假设数据存储在一个名为df的DataFrame中，包含"省份"和"数据"列
+                df_by_province = df_table.groupby('Province').size().reset_index()
+                df_by_province.columns = ['省份', '数据']
+
+                # 创建一个空白地图
+                interactive_map = folium.Map(
+                    location=[38, 115],
+                    zoom_start=3.4,
+                    scrollWheelZoom=False
+                )
+
+                provinces_map = json.loads(open("./images/china_province.geojson",'r').read().replace('自治区','').replace('回族','').replace('壮族','').replace('维吾尔',''))
+                provinces_list = pd.DataFrame({'省份':[x['properties']['NL_NAME_1'] for x in provinces_map['features']]})
+                df_by_province = df_by_province.merge(provinces_list, how='outer').fillna(0)
+                choropleth = folium.Choropleth(
+                    geo_data=provinces_map,
+                    # color="sunsetdark",
+                    data=df_by_province,
+                    columns=('省份','数据'),
+                    key_on='properties.NL_NAME_1',
+                    line_opacity=0.5,
+                    highlight=True
+                )
+                choropleth.geojson.add_to(interactive_map)
+                st_map = st_folium(interactive_map, width=700, height=400)
+                if st.button('选择所有省份'):
+                    st_map['last_object_clicked'] = None
+                if st_map['last_object_clicked'] is not None:
+                    sel_province = st_map['last_active_drawing']['properties']['NL_NAME_1']
+                    try:
+                        sel_province_num = int(df_by_province.loc[df_by_province['省份'] == sel_province, '数据'].values[0])
+                    except:
+                        sel_province_num = 0
+                    st.write(
+                        f'**:green[{sel_province}] 地区，共有 :green[{sel_province_num}] 条标签为 :green[{sel_tag}] 的原始评论**')
                 else:
-                    df_table = df_filtered.loc[df_filtered['tag'] == sel_tag]
-
-            st.markdown(f"**标签为 :green[{sel_tag}] 的原始评论：共{len(df_table)}条**")
-            df_table = df_table[['chunk', 'category', 'parts', 'sentiment', 'tag', 'comment', 'province', 'survey_time']]
-            df_table.columns = ['Chunk', 'Category', 'Parts', 'Sentiment', 'Tag', 'Comment', 'Province', 'Timestamp']
-            df_table['Date'] = pd.to_datetime(df_table['Timestamp']).dt.date
-            df_table.reset_index(drop=True, inplace=True)
-            reviews = '\n\n'.join(df_table['Chunk'].tolist())
-
-            # 假设数据存储在一个名为df的DataFrame中，包含"省份"和"数据"列
-            df_by_province = df_table.groupby('Province').size().reset_index()
-            df_by_province.columns = ['省份', '数据']
-
-            # 创建一个空白地图
-            interactive_map = folium.Map(
-                location=[38, 105],
-                zoom_start=3.5,
-                scrollWheelZoom=False
-            )
-
-            provinces_map = json.loads(open("./images/china_province.geojson",'r').read().replace('自治区','').replace('回族','').replace('壮族','').replace('维吾尔',''))
-            provinces_list = pd.DataFrame({'省份':[x['properties']['NL_NAME_1'] for x in provinces_map['features']]})
-            df_by_province = df_by_province.merge(provinces_list, how='outer').fillna(0)
-            choropleth = folium.Choropleth(
-                geo_data=provinces_map,
-                # color="sunsetdark",
-                data=df_by_province,
-                columns=('省份','数据'),
-                key_on='properties.NL_NAME_1',
-                line_opacity=0.5,
-                highlight=True
-            )
-            choropleth.geojson.add_to(interactive_map)
-            st_map = st_folium(interactive_map, width=700, height=600)
-            if st.button('选择所有省份'):
-                st_map['last_object_clicked'] = None
-            if st_map['last_object_clicked'] is not None:
-                sel_province = st_map['last_active_drawing']['properties']['NL_NAME_1']
-                try:
-                    sel_province_num = int(df_by_province.loc[df_by_province['省份'] == sel_province, '数据'].values[0])
-                except:
-                    sel_province_num = 0
-                st.write(
-                    f'**:green[{sel_province}] 地区，共有 :green[{sel_province_num}] 条标签为 :green[{sel_tag}] 的原始评论**')
-            else:
-                sel_province = 'All'
-                sel_province_num = int(df_by_province['数据'].sum())
-                st.write(f'**:green[所有省份] 地区，共有 :green[{sel_province_num}] 条标签为 :green[{sel_tag}] 的原始评论**')
+                    sel_province = '所有'
+                    sel_province_num = int(df_by_province['数据'].sum())
+                    st.write(f'**:green[所有省份] 地区，共有 :green[{sel_province_num}] 条标签为 :green[{sel_tag}] 的原始评论**')
 
 
         with st.expander('**点击展开消费者原始评论**'):
             st.markdown("<div style='height:20px'> </div>", unsafe_allow_html=True)
             df_table.index = df_table.index + 1
-            if sel_province != 'All':
+            if sel_province != '所有':
                 df_show = df_table[df_table['Province'] == sel_province]
             else:
                 df_show = df_table
+            df_show = df_show[['Comment', 'Chunk', 'Sentiment', 'Parts', 'Category', 'Tag']]
+            df_show.columns = ['原始评论', '语块切分', '情感分类', '组成部分', '一级标签', '二级标签']
+            st.markdown(f'#### 消费者原始评论（{sel_tag}，{sel_province}地区），共{df_show.shape[0]}条')
+            # 添加一个按钮以触发Excel文件下载
+            output = io.BytesIO()
+            writer = pd.ExcelWriter(output, engine='xlsxwriter')
+            df_show.to_excel(writer, sheet_name='Sheet1')
+            writer.close()
+            processed_data = output.getvalue()
+            # 下载Excel
+            st.download_button(
+                label='点击下载Excel',
+                data=processed_data,
+                file_name=f'消费者原始评论_{sel_tag}_{sel_province}.xlsx',
+                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            # 生成总结
+            if st.button('在线生成总结'):
+                reviews = '\n\n'.join(df_show['语块切分'].tolist())
+                st.session_state.reset_summary = True
+                system_prompt = f'''
+            你是一位Consumer Insights分析专家，你的客户是一家炸鸡快餐店，最近他们推出了一款新产品:{product_name}，
+            他们想要了解消费者对于他们的产品在{sel_tag}这个观点的具体看法。
+                '''
+                summarize_prompt = f'''
+            你的任务是:
+            - 根据用户评论，总结观点，告诉我用户观点主要集中在哪些方面，哪些方面占比比较高
+            - 总结需要结构化,以bullet形式输出，要求逻辑严谨，观点不重复不遗漏，MECE
+            - don't make up an answer，观点要有输入用户评论作为依据
+
+            用户评论:
+            {reviews}
+
+            %例子开始
+            根据消费者评论分析极氪刹车存在较多负面反馈 。主要痛点集中在 刹车
+            前段过软 无法提供足够制动力 导致踩刹车的制动距离过长、 刹车反应
+            不灵敏 不能够对司机操作做出即时响应 。此外 刹车噪音较大 使用过程
+            中存在明显震动和抖动也影响舒适性 。 一定程度上削弱了消费者的驾驶
+            信心与体验感 。这些问题反映出极氪刹车系统 在硬件设计、软件调教上
+            还有优化空间 需要继续改进与调整 以提供更安全、舒适的刹车体验 满
+            足消费者对动力更直接、制动更有信心的需求。
+            %例子结束
+                '''
+
+                messages = [{
+                    "role": 'system',
+                    "content": system_prompt
+                }, {
+                    "role": 'user',
+                    "content": summarize_prompt
+                }]
+
+                text_width = 800
+                response_text = ""
+                batch_size = 50
+                batch_counter = 0
+                message_col = st.empty()
+
+                width = 400
+                height = 200
+
+                spinner_html = f'''
+                <div style="display: flex; align-items: center; justify-content: center;">
+                    <img src="https://media.tenor.com/ysXbGu-PSTcAAAAC/adorable-cat.gif" alt="loading..." width="300"/>
+                </div>
+                '''
+                message_col.markdown(
+                    spinner_html,
+                    unsafe_allow_html=True
+                )
+
+                for item in gpt_query_stream(client, messages):
+                    response_text += item
+                    message_col.write(response_text)
+            # 显示
             if df_show.shape[0] > 0:
-                df_show = df_show[['Comment', 'Chunk', 'Sentiment', 'Parts', 'Category', 'Tag']]
-                df_show.columns = ['原始评论', '语块切分', '情感分类', '组成部分', '一级标签', '二级标签']
                 st.table(df_show)
 
         with st.expander('**点击展开VOC变化趋势分析**'):
@@ -417,63 +489,61 @@ if st.session_state['language'] == 0:
             df_table_compare.index += 1
             st.table(df_table_compare)
 
-        st.markdown(f'''#### :green[4. 在线生成观点总结]''')
-        if st.button('生成总结'):
-            st.session_state.reset_summary = True
-            system_prompt = f'''
-        你是一位Consumer Insights分析专家，你的客户是一家炸鸡快餐店，最近他们推出了一款新产品:{product_name}，
-        他们想要了解消费者对于他们的产品在{sel_tag}这个观点的具体看法。
-            '''
-            summarize_prompt = f'''
-        你的任务是:
-        - 根据用户评论，总结观点，告诉我用户观点主要集中在哪些方面，哪些方面占比比较高
-        - 总结需要结构化,以bullet形式输出，要求逻辑严谨，观点不重复不遗漏，MECE
-        - don't make up an answer，观点要有输入用户评论作为依据
+        st.markdown(f'''#### :green[4. 智能对话机器人]''')
+        system_msg = f'''
+        <your role>
+        你是一位连锁餐厅的Customer insights专家，特别擅长消费者之声的VOC(Voice of Customers)分析
 
-        用户评论:
-        {reviews}
+        <真实VOC列表>
+        {df_table}
 
-        %例子开始
-        根据消费者评论分析极氪刹车存在较多负面反馈 。主要痛点集中在 刹车
-        前段过软 无法提供足够制动力 导致踩刹车的制动距离过长、 刹车反应
-        不灵敏 不能够对司机操作做出即时响应 。此外 刹车噪音较大 使用过程
-        中存在明显震动和抖动也影响舒适性 。 一定程度上削弱了消费者的驾驶
-        信心与体验感 。这些问题反映出极氪刹车系统 在硬件设计、软件调教上
-        还有优化空间 需要继续改进与调整 以提供更安全、舒适的刹车体验 满
-        足消费者对动力更直接、制动更有信心的需求。
-        %例子结束
-            '''
+        <your task>
+        请你根据<真实VOC列表>回答问题
 
-            messages = [{
-                "role": 'system',
-                "content": system_prompt
-            }, {
-                "role": 'user',
-                "content": summarize_prompt
-            }]
+        <instructions>
+        - 保持严谨，不要回复{display_name}产品以外的内容
+        - 如果判断问题与{display_name}无关，则回答“请询问与合同有关的问题”'''
 
-            text_width = 800
-            response_text = ""
-            batch_size = 50
-            batch_counter = 0
-            message_col = st.empty()
+        if "messages" not in st.session_state:
+            st.session_state.messages = [{"role": "system", "content": system_msg}]
+            st.session_state.messages_to_show = []
+        # Display chat messages from history on app rerun
+        for message in st.session_state.messages_to_show:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-            width = 400
-            height = 200
+        # Accept user input
+        if input := st.chat_input(f"可以询问关于{display_name}VOC任何你想知道的内容"):
+            # Add user message to chat history
+            st.session_state.messages.append({"role": "system", "content": input})
+            st.session_state.messages_to_show.append({"role": "user", "content": input})
+            # Display user message in chat message container
+            with st.chat_message("user"):
+                st.markdown(input)
+            # Display assistant response in chat message container
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                full_response = ""
 
-            spinner_html = f'''
-            <div style="display: flex; align-items: center; justify-content: center;">
-                <img src="https://media.tenor.com/ysXbGu-PSTcAAAAC/adorable-cat.gif" alt="loading..." width="300"/>
-            </div>
-            '''
-            message_col.markdown(
-                spinner_html,
-                unsafe_allow_html=True
+            res = client.chat.completions.create(
+                model=st.session_state["openai_model"],
+                messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
+                temperature=0.0,
+                max_tokens=1300,
+                top_p=0.0,
+                frequency_penalty=0,
+                presence_penalty=0,
+                #	stream=True
             )
-
-            for item in gpt_query_stream(client, messages):
-                response_text += item
-                message_col.write(response_text)
+            print([{"role": m["role"], "content": m["content"]} for m in st.session_state.messages])
+            full_response += (res.choices[0].message.content or "")
+            message_placeholder.markdown(full_response + "▌")
+            message_placeholder.markdown(full_response)
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            st.session_state.messages_to_show.append({"role": "assistant", "content": full_response})
+        if st.button('清除聊天内容'):
+            st.session_state.messages = [{"role": "system", "content": system_msg}]
+            st.session_state.messages_to_show = []
 
 
 
